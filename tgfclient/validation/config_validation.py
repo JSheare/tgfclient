@@ -53,7 +53,7 @@ def is_valid_directory_path(value: str) -> str:
     if value != '' and value[-1] == '/':
         value = value[:-1]
 
-    if value != '' and not re.match(r'^((/[a-zA-Z0-9_-]+)+|/)$', value):
+    if value != '' and not re.match(r'^((/[a-zA-Z0-9 _-]+)+|/)$', value):
         raise ValueError('input should be a valid absolute directory path.')
 
     return value

@@ -4,12 +4,14 @@ from __future__ import annotations
 import datetime
 import json
 import logging
-import re
 import paramiko
 import pathlib
 import platformdirs
 import psutil
+import re
 import time
+import tgfsearch
+import warnings
 import websockets
 from dataclasses import dataclass
 from enum import IntEnum
@@ -352,7 +354,7 @@ class Client:
             # Adding days that are new and not empty to the set
             if day not in self._days_transferred:
                 total_size = 0
-                for item in pathlib.Path(day_dir).glob(f'{day_dir}/*'):
+                for item in pathlib.Path(day_dir).glob('*'):
                     if item.is_file():
                         total_size += item.stat().st_size
 
@@ -363,6 +365,11 @@ class Client:
         self._days_transferred = all_days.intersection(self._days_transferred)
         self._write_days_transferred()
 
+        # Removing the current day from the list, since it isn't over
+        today = datetime.datetime.now().strftime('%y%m%d')
+        if today in new_days:
+            new_days.pop(today)
+
         return new_days
 
     @staticmethod
@@ -370,10 +377,51 @@ class Client:
         """A helper function that returns the storage usage fraction for the disk where data is located."""
         return psutil.disk_usage(path).percent * 0.01
 
-    @staticmethod
-    def _get_gps_status() -> bool:
-        """A helper function that returns the status of the GPS system as a bool."""
-        return True
+    def _get_gps_status(self) -> bool:
+        """A helper function that returns the status of the GPS as a bool."""
+        # Checking files in the current day if possible
+        path = pathlib.Path(f'{self._config.instrument_data_directory}/{datetime.datetime.now().strftime("%y%m%d")}')
+        if not path.exists():
+            # Checking files in the previous day if the current one doesn't have any files yet
+            path = pathlib.Path(f'{self._config.instrument_data_directory}/'
+                                f'{(datetime.datetime.now() - datetime.timedelta(seconds=86400)).strftime("%y%m%d")}')
+
+        if not path.exists():
+            return False
+
+        # Getting a list of files for the day
+        files = []
+        for item in path.glob('*'):
+            if item.is_file():
+                files.append(str(item))
+
+        # Sorting the files in reverse so that we look at the most recent files first
+        files.sort(reverse=True)
+        for file in files:
+            # Skipping trace files
+            if '.xtr' in file:
+                continue
+
+            # Looking for a True pps flag
+            try:
+                with warnings.catch_warnings():
+                    warnings.simplefilter('ignore')
+                    data = tgfsearch.read_file(file)[0]
+
+            except Exception:
+                # If the file couldn't be read for whatever reason, just try the next one
+                continue
+
+            flags = tgfsearch.translate_flags(data, only_flags=['pps'])
+            if 'pps' not in flags.columns:
+                return False
+
+            for flag in flags['pps'].to_list():
+                if flag:
+                    # A True pps flag means that the GPS is working
+                    return True
+
+        return False
 
     def _first_interaction(self, new_days) -> datetime.datetime:
         """A function that implements the application's first interaction with the server. During this interaction, the
@@ -412,36 +460,41 @@ class Client:
                         self._logger.info(f'Failed to check in with server.')
                         return params.INVALID_TIME
 
-                    # Attempting to get on the transfer scheduling waitlist
-                    # Calculating the total number of bytes to transfer and making an ordered list of days in case we
-                    # need to remove some later
-                    total_bytes = 0
-                    ordered_days = []
-                    for day in new_days:
-                        total_bytes += new_days[day].size
-                        ordered_days.append(day)
+                    if len(new_days) > 0:
+                        # Attempting to get on the transfer scheduling waitlist
+                        # Calculating the total number of bytes to transfer and making an ordered list of days in case
+                        # we need to remove some later
+                        self._logger.info(f'Attempting to register on scheduling waitlist ({len(new_days)} days).')
+                        self._logger.debug(f'Days: {" ".join([day for day in new_days])}.')
+                        total_bytes = 0
+                        ordered_days = []
+                        for day in new_days:
+                            total_bytes += new_days[day].size
+                            ordered_days.append(day)
 
-                    ordered_days.sort()
-                    while True:
-                        success, stop, callback_time = session.negotiate(ws, total_bytes, self._measurements)
-                        if success:
-                            self._logger.info('Successfully registered on scheduling waitlist.')
-                            return callback_time
-                        else:
-                            if stop:
-                                self._logger.info('Failed to register on scheduling waitlist. No time available.')
-                                return params.INVALID_TIME
+                        ordered_days.sort()
+                        while True:
+                            success, stop, callback_time = session.negotiate(ws, total_bytes, self._measurements)
+                            if success:
+                                self._logger.info('Successfully registered on scheduling waitlist.')
+                                return callback_time
+                            else:
+                                if stop:
+                                    self._logger.info('Failed to register on scheduling waitlist. No time available.')
+                                    return params.INVALID_TIME
 
-                            # Removing the most recent day from the total
-                            day = ordered_days[-1]
-                            self._logger.debug(f'Removing {day} from transfer list.')
-                            total_bytes -= new_days[day]
-                            new_days.pop(day)
-                            ordered_days.pop()
+                                # Removing the most recent day from the total
+                                day = ordered_days[-1]
+                                self._logger.debug(f'Removing {day} from transfer list.')
+                                total_bytes -= new_days[day]
+                                new_days.pop(day)
+                                ordered_days.pop()
 
-                            if len(new_days) == 0:
-                                self._logger.info('Failed to register on scheduling waitlist. No days left to '
-                                                  'transfer.')
+                                if len(new_days) == 0:
+                                    self._logger.info('Failed to register on scheduling waitlist. No days left to '
+                                                      'transfer.')
+                    else:
+                        self._logger.info('No new data to transfer.')
 
                 except KeyError:
                     self._logger.error('Server sent an improperly formed message that could not be interpreted.')
