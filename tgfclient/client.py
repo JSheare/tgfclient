@@ -221,14 +221,14 @@ class DispatcherSession:
         response = json.loads(ws.recv())
         if response['status'] == IDStatusCode.OK:
             self._logger.debug('Received successful file transfer negotiation message from server.')
-            return True, True, response['payload']['callback_time']
+            return True, True, datetime.datetime.fromisoformat(response['payload']['callback_time'])
         else:
             self._logger.debug(f'Received unsuccessful file transfer negotiation message from server. '
                                f'Reason: {response["payload"]["reason"]}.')
             if response['status'] == IDStatusCode.TRANSFER_TOO_LARGE:
-                return False, False, datetime.datetime.fromtimestamp(0, datetime.UTC)
+                return False, False, params.INVALID_TIME
             else:
-                return False, True, datetime.datetime.fromtimestamp(0, datetime.UTC)
+                return False, True, params.INVALID_TIME
 
     def callback(self, ws: websockets.sync.client.ClientConnection
                  ) -> Tuple[bool, bool, datetime.datetime, datetime.datetime, str]:
@@ -267,8 +267,7 @@ class DispatcherSession:
         else:
             self._logger.debug(f'Received unsuccessful callback message from server. '
                                f'Reason: {response["payload"]["reason"]}.')
-            invalid_time = datetime.datetime.fromtimestamp(0, datetime.UTC)
-            return False, False, invalid_time, invalid_time, ''
+            return False, False, params.INVALID_TIME, params.INVALID_TIME, ''
 
 
 class Client:
