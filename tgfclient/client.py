@@ -574,11 +574,15 @@ class Client:
     def _remove_already_transferred(self, sftp: paramiko.SFTPClient, remote_path: str,
                                     new_days: Dict[str, Day]) -> None:
         """A helper function that removes already-transferred days from the transfer info."""
-        # Getting a list of days present on the data computer
-        remote_days = dict()
-        for item in sftp.listdir_attr(remote_path):
-            if S_ISDIR(item.st_mode) and re.match(r'^[0-9]{6}$', item.filename):
-                remote_days[item.filename] = f'{remote_path}/{item.filename}'
+        try:
+            # Getting a list of days present on the data computer
+            remote_days = dict()
+            for item in sftp.listdir_attr(remote_path):
+                if S_ISDIR(item.st_mode) and re.match(r'^[0-9]{6}$', item.filename):
+                    remote_days[item.filename] = f'{remote_path}/{item.filename}'
+
+        except FileNotFoundError:
+            return
 
         overlap = set(new_days).intersection(remote_days)
         if len(overlap) > 0:
@@ -597,7 +601,20 @@ class Client:
         files = [f for f in pathlib.Path(day.path).iterdir() if f.is_file()]
         files_transferred = 0
         total_bytes = 0
-        sftp.mkdir(remote_dir)
+        sftp.chdir('/')
+        # Making the daily directory if it doesn't already exist
+        for dir in remote_dir.split('/'):
+            if dir == '':
+                continue
+
+            try:
+                sftp.chdir(dir)
+            except FileNotFoundError:
+                sftp.mkdir(dir)
+                sftp.chdir(dir)
+
+        sftp.chdir('/')
+
         # Making the transfer marker file
         with sftp.open(f'{remote_dir}/{params.TRANSFER_FILE}', 'w'):
             pass
@@ -606,7 +623,7 @@ class Client:
         # Transferring each file one by one
         for file in files:
             self._logger.debug(f"Transferring '{file}'.")
-            sftp.put(str(file), remote_dir)
+            sftp.put(str(file), f'{remote_dir}/{file.name}')
             files_transferred += 1
             total_bytes += file.stat().st_size
             # Ending the transfer if we go past the end of the time slot
@@ -643,6 +660,8 @@ class Client:
         total_bytes = 0
         try:
             with paramiko.SSHClient() as session:
+                session.get_host_keys().add(self._config.data_host, 'ssh-ed25519',
+                                            paramiko.Ed25519Key(data=self._config.data_host_public_key))
                 session.connect(self._config.data_host, self._config.data_port, username=self._config.data_user,
                                 password=self._config.data_password, timeout=self._config.data_timeout_sec)
                 with session.open_sftp() as sftp:

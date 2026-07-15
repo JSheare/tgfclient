@@ -31,7 +31,8 @@ And finally, to run the application, use the following command:
 - instrument_name: the name of the instrument that the application will authenticate with the server as.
 - instrument_password: the instrument's dispatcher password.
 - data_host: the address of the data computer.
-- data_port: the port that the data computer uses for SSH connections (used by the application for SFTP).
+- data_host_public_key: the SSH public Ed25519 key of the data computer (used by the application for SFTP).
+- data_port: the port that the data computer uses for SSH connections.
 - data_user: the data computer user that the application will log in to the data computer as.
 - data_password: the password for the data computer user.
 - data_timeout_sec: the amount of time to wait for an SSH session to be established with the data computer.

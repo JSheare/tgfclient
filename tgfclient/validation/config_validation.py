@@ -76,6 +76,7 @@ class ClientModel(pydantic.BaseModel):
     instrument_name: Annotated[str, pydantic.AfterValidator(is_valid_instrument_name)]
     instrument_password: str
     data_host: Annotated[str, pydantic.AfterValidator(is_valid_host)]
+    data_host_public_key: pydantic.Base64Bytes
     data_port: Annotated[int, pydantic.AfterValidator(is_valid_port)]
     data_user: str
     data_password: str
