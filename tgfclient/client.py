@@ -216,7 +216,7 @@ class DispatcherSession:
         message = {'type': 'negotiation',
                    'payload': {'total_bytes': total_bytes,
                                'measured_rates': measurements.measured_rates,
-                               'timestamps': measurements.timestamps}}
+                               'timestamps': [t.isoformat() for t in measurements.timestamps]}}
         ws.send(json.dumps(message))
         response = json.loads(ws.recv())
         if response['status'] == IDStatusCode.OK:
