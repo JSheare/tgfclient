@@ -485,7 +485,7 @@ class Client:
                                 # Removing the most recent day from the total
                                 day = ordered_days[-1]
                                 self._logger.debug(f'Removing {day} from transfer list.')
-                                total_bytes -= new_days[day]
+                                total_bytes -= new_days[day].size
                                 new_days.pop(day)
                                 ordered_days.pop()
 
