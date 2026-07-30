@@ -30,7 +30,7 @@ def read_config(update_user_config: bool = True) -> configparser.ConfigParser:
     """
 
     # Reading the user config file, or making one if it doesn't exist
-    directory = platformdirs.user_config_path(params.APP_NAME, appauthor=False)
+    directory = platformdirs.user_config_path(params.APPLICATION_NAME, appauthor=False)
     user_file = f'{directory}/{params.CONFIG_FILE}'
     if not pathlib.Path(user_file).is_file():
         directory_path = pathlib.Path(directory)

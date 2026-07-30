@@ -18,7 +18,7 @@ from tgfclient.validation.config_validation import ClientModel
 
 def main() -> None:
     """A function that serves as the top level call for the tgfclient application."""
-    parser = argparse.ArgumentParser(prog=params.APP_NAME,
+    parser = argparse.ArgumentParser(prog=params.APPLICATION_NAME,
                                      description='A client application for the instruments of the UCSC TGF group')
     parser.add_argument('--setup', help='run the set up process for the application', action='store_true')
     parser.add_argument('--test_config', help='test that the config file contains valid options', action='store_true')
@@ -26,11 +26,11 @@ def main() -> None:
     # Handling any arguments
     if args.setup:
         read_config()
-        print(f'Made/updated config file at {platformdirs.user_config_path(params.APP_NAME, appauthor=False)}.')
+        print(f'Made/updated config file at {platformdirs.user_config_path(params.APPLICATION_NAME, appauthor=False)}.')
         return
     if args.test_config:
         try:
-            ClientModel(**dict(read_config().items(params.APP_NAME)))
+            ClientModel(**dict(read_config().items(params.APPLICATION_NAME)))
             print('All config file options successfully validated.')
             return
         except pydantic.ValidationError as ex:

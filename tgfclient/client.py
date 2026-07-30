@@ -15,6 +15,7 @@ import warnings
 import websockets
 from dataclasses import dataclass
 from enum import IntEnum
+from importlib.metadata import version, PackageNotFoundError
 from stat import S_ISDIR, S_ISREG
 from types import SimpleNamespace
 from typing import Dict, List, Set, Tuple
@@ -287,8 +288,8 @@ class Client:
     """
 
     def __init__(self) -> None:
-        self._config = ClientModel(**dict(read_config().items(params.APP_NAME)))
-        self._logger = logging.getLogger(params.APP_NAME)
+        self._config = ClientModel(**dict(read_config().items(params.APPLICATION_NAME)))
+        self._logger = logging.getLogger(params.APPLICATION_NAME)
         self._logger.setLevel(self._config.log_level)
         self._measurements = self._read_measurements()
         self._days_transferred = self._read_days_transferred()
@@ -301,7 +302,7 @@ class Client:
     @staticmethod
     def _read_measurements() -> Measurements:
         """A helper function that reads the measured data transfer rates from a file."""
-        measurements_file = (f'{platformdirs.user_data_path(params.APP_NAME, appauthor=False)}/'
+        measurements_file = (f'{platformdirs.user_data_path(params.APPLICATION_NAME, appauthor=False)}/'
                              f'{params.MEASUREMENTS_FILE}')
         if pathlib.Path(measurements_file).is_file():
             raw_measurements = read_json_file(measurements_file)
@@ -312,7 +313,7 @@ class Client:
 
     def _write_measurements(self) -> None:
         """A helper function that writes the measured data transfer rates to a file."""
-        path = pathlib.Path(platformdirs.user_data_path(params.APP_NAME, appauthor=False))
+        path = pathlib.Path(platformdirs.user_data_path(params.APPLICATION_NAME, appauthor=False))
         if not path.is_dir():
             path.mkdir(parents=True)
 
@@ -322,7 +323,7 @@ class Client:
     @staticmethod
     def _read_days_transferred() -> Set[str]:
         """A helper function that reads the record of already transferred days from a file."""
-        days_file = f'{platformdirs.user_data_path(params.APP_NAME, appauthor=False)}/{params.DAYS_FILE}'
+        days_file = f'{platformdirs.user_data_path(params.APPLICATION_NAME, appauthor=False)}/{params.DAYS_FILE}'
         if pathlib.Path(days_file).is_file():
             return set(read_json_file(days_file))
 
@@ -330,7 +331,7 @@ class Client:
 
     def _write_days_transferred(self) -> None:
         """A helper function that writes the record of already transferred days to a file."""
-        path = pathlib.Path(platformdirs.user_data_path(params.APP_NAME, appauthor=False))
+        path = pathlib.Path(platformdirs.user_data_path(params.APPLICATION_NAME, appauthor=False))
         if not path.is_dir():
             path.mkdir(parents=True)
 
@@ -689,7 +690,18 @@ class Client:
         """A function that implements the application's main functionality."""
         configure_logging(self._config.log_level)
         self._configure_module_loggers()
-        self._logger.info('Starting new client session.')
+
+        app_version = None
+        try:
+            app_version = version(params.APPLICATION_NAME)
+        except PackageNotFoundError:
+            pass
+
+        if app_version is not None:
+            self._logger.info(f'({params.APPLICATION_NAME} v{app_version}) Starting new client session.')
+        else:
+            self._logger.info('Starting new client session.')
+
         try:
             # Getting a list of days to transfer
             new_days = self._get_new_days()

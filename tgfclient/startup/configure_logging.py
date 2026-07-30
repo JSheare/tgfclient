@@ -21,12 +21,12 @@ def configure_logging(log_level: int) -> None:
     # Configuring a handler on the root logger so that everything goes to the same log file.
     root_logger = logging.getLogger()
     root_logger.setLevel(log_level)
-    log_directory = pathlib.Path(platformdirs.user_log_path(params.APP_NAME, appauthor=False))
+    log_directory = pathlib.Path(platformdirs.user_log_path(params.APPLICATION_NAME, appauthor=False))
     if not log_directory.is_dir():
         log_directory.mkdir(parents=True)
 
     handler = logging.handlers.RotatingFileHandler(
-        filename=f'{log_directory}/{params.APP_NAME}.txt',
+        filename=f'{log_directory}/{params.APPLICATION_NAME}.txt',
         encoding='utf-8',
         maxBytes=params.MAX_LOG_SIZE_BYTES,
         backupCount=params.MAX_LOG_ROLLOVERS)
