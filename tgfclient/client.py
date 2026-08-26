@@ -294,6 +294,9 @@ class Client:
         self._measurements = self._read_measurements()
         self._days_transferred = self._read_days_transferred()
 
+        while len(self._measurements) > params.MAX_MEASUREMENTS:
+            self._measurements.remove_measurement()
+
     def _configure_module_loggers(self) -> None:
         """A helper function that configures the loggers of the modules used by the class."""
         logging.getLogger('websockets.client').setLevel(self._config.log_level)
@@ -683,6 +686,9 @@ class Client:
             # Calculating the transfer rate and recording it
             transfer_rate = total_bytes / (datetime.datetime.now(datetime.UTC) - start).total_seconds()
             self._measurements.add_measurement(transfer_rate)
+            while len(self._measurements) > params.MAX_MEASUREMENTS:
+                self._measurements.remove_measurement()
+
             self._write_measurements()
 
 
