@@ -122,7 +122,7 @@ class DispatcherSession:
 
         Returns
         -------
-        Tuple[bool, bool]
+        tuple[bool, bool]
             A bool indicating whether authentication was successful, and a bool indicating whether the interaction
             is over.
 
@@ -158,7 +158,7 @@ class DispatcherSession:
 
         Returns
         -------
-        Tuple[bool, bool]
+        tuple[bool, bool]
             A bool indicating whether the check in was successful, and a bool indicating whether the interaction is
             over.
 
@@ -198,7 +198,7 @@ class DispatcherSession:
 
         Returns
         -------
-        Tuple[bool, bool, datetime.datetime]
+        tuple[bool, bool, datetime.datetime]
             A bool indicating whether the negotiation offer was accepted, a bool indicating whether the interaction
             is over, and a callback time. If the negotiation offer wasn't accepted, the returned time will be the
             Unix Epoch.
@@ -242,7 +242,7 @@ class DispatcherSession:
 
         Returns
         -------
-        Tuple[bool, bool, datetime.datetime, datetime, str]
+        tuple[bool, bool, datetime.datetime, datetime, str]
             A bool indicating whether scheduling was successful, a bool indicating whether the interaction is over, a
             scheduled start time, a scheduled end time, and the path on the data computer where data goes. If
             scheduling was unsuccessful, then the start and end times will be the Unix Epoch and the path will be empty.
@@ -282,7 +282,7 @@ class Client:
         The application's logger.
     _measurements : Measurements
         The application's measured data transfer rates.
-    _days_transferred : Set[str]
+    _days_transferred : set of str
         The application's record of days that have already been transferred.
 
     """
@@ -432,7 +432,7 @@ class Client:
 
         Parameters
         ----------
-        new_days : Dict[str, Day]
+        new_days : dict of {str, Day}
             A dictionary containing information about days that need to be transferred.
 
         Returns
@@ -521,7 +521,7 @@ class Client:
 
         Returns
         -------
-        Tuple[datetime.datetime, datetime.datetime, str]
+        tuple[datetime.datetime, datetime.datetime, str]
             The start time of the scheduled file transfer, the end time of the scheduled file transfer, and the
             path on the data computer where data should go. If scheduling was unsuccessful, then start and end times
             will be the Unix Epoch and the path will be empty.
@@ -651,7 +651,7 @@ class Client:
 
         Parameters
         ----------
-        new_days : Dict[str, Day]
+        new_days : dict of {str, Day}
             A dictionary containing information about days that need to be transferred.
         end_time : datetime.datetime
             The end time of the scheduled file transfer.

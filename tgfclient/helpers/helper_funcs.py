@@ -13,7 +13,7 @@ def read_json_file(file: str) -> Any:
 
     Returns
     -------
-    Any
+    any
         The json file's contents.
 
     """
@@ -29,7 +29,7 @@ def write_json_file(data: Any, file: str) -> None:
 
         Parameters
         ----------
-        data : Any
+        data : any
             The JSON-serializable data to be written.
 
         file : str
