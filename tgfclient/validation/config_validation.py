@@ -68,6 +68,7 @@ def is_valid_instrument_name(value: str) -> str:
 
 
 class ClientModel(pydantic.BaseModel):
+    """A model for validating the application's config file."""
     log_level: Annotated[int, pydantic.BeforeValidator(is_valid_log_level)]
     ws_scheme: Annotated[str, pydantic.AfterValidator(is_valid_websocket_scheme)]
     dispatcher_host: Annotated[str, pydantic.AfterValidator(is_valid_host)]
