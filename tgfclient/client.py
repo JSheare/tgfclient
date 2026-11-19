@@ -6,7 +6,6 @@ import json
 import logging
 import paramiko
 import pathlib
-import platformdirs
 import psutil
 import re
 import time
@@ -305,8 +304,7 @@ class Client:
     @staticmethod
     def _read_measurements() -> Measurements:
         """A helper function that reads the measured data transfer rates from a file."""
-        measurements_file = (f'{platformdirs.user_data_path(params.APPLICATION_NAME, appauthor=False)}/'
-                             f'{params.MEASUREMENTS_FILE}')
+        measurements_file = f'{params.DATA_PATH}/{params.MEASUREMENTS_FILE}'
         if pathlib.Path(measurements_file).is_file():
             raw_measurements = read_json_file(measurements_file)
 
@@ -316,7 +314,7 @@ class Client:
 
     def _write_measurements(self) -> None:
         """A helper function that writes the measured data transfer rates to a file."""
-        path = pathlib.Path(platformdirs.user_data_path(params.APPLICATION_NAME, appauthor=False))
+        path = pathlib.Path(params.DATA_PATH)
         if not path.is_dir():
             path.mkdir(parents=True)
 
@@ -326,7 +324,7 @@ class Client:
     @staticmethod
     def _read_days_transferred() -> Set[str]:
         """A helper function that reads the record of already transferred days from a file."""
-        days_file = f'{platformdirs.user_data_path(params.APPLICATION_NAME, appauthor=False)}/{params.DAYS_FILE}'
+        days_file = f'{params.DATA_PATH}/{params.DAYS_FILE}'
         if pathlib.Path(days_file).is_file():
             return set(read_json_file(days_file))
 
@@ -334,7 +332,7 @@ class Client:
 
     def _write_days_transferred(self) -> None:
         """A helper function that writes the record of already transferred days to a file."""
-        path = pathlib.Path(platformdirs.user_data_path(params.APPLICATION_NAME, appauthor=False))
+        path = pathlib.Path(params.DATA_PATH)
         if not path.is_dir():
             path.mkdir(parents=True)
 

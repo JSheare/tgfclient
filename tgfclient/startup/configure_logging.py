@@ -1,7 +1,6 @@
 """A module containing a function that sets up logging for the tgfclient application."""
 import logging
 import pathlib
-import platformdirs
 from logging import handlers
 
 import tgfclient.config.parameters as params
@@ -21,7 +20,7 @@ def configure_logging(log_level: int) -> None:
     # Configuring a handler on the root logger so that everything goes to the same log file.
     root_logger = logging.getLogger()
     root_logger.setLevel(log_level)
-    log_directory = pathlib.Path(platformdirs.user_log_path(params.APPLICATION_NAME, appauthor=False))
+    log_directory = pathlib.Path(params.LOG_PATH)
     if not log_directory.is_dir():
         log_directory.mkdir(parents=True)
 

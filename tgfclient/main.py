@@ -2,7 +2,6 @@
 import argparse
 import configparser
 import os
-import platformdirs
 import psutil
 import pydantic
 import sys
@@ -19,10 +18,27 @@ from tgfclient.startup.read_config import read_config
 from tgfclient.validation.config_validation import ClientModel
 
 
+def test_config() -> None:
+    """A function that parses and validates the application's config file and prints feedback about the process."""
+    try:
+        ClientModel(**dict(read_config().items(params.APPLICATION_NAME)))
+        print('All config file options successfully validated.')
+    except configparser.NoSectionError:
+        print(f'Encountered error when parsing config file: no section for the application exists.')
+    except pydantic.ValidationError as ex:
+        print(f'Encountered error(s) when validating config file:')
+        for error in ex.errors():
+            loc = '.'.join([s for s in error['loc'] if isinstance(s, str)])
+            if error['type'] == 'missing':
+                print(f"Missing required field: {loc}.")
+            else:
+                print(f"Invalid input '{error['input']}' at {loc}. {error['msg']}")
+
+
 def running_pid() -> int:
     """A function that returns the pid of the application, or -1 if it isn't currently running."""
     try:
-        with (open(f'{platformdirs.user_runtime_path(params.APPLICATION_NAME, appauthor=False)}/{params.PID_FILE}', 'r')
+        with (open(f'{params.RUNTIME_PATH}/{params.PID_FILE}', 'r')
               as file):
             # Checking to see if the pid in the file is still active
             pid = int(file.readline())
@@ -33,11 +49,12 @@ def running_pid() -> int:
     except (OSError, FileNotFoundError, ValueError):
         return -1
 
+
 @contextmanager
 def pid_manager() -> Generator[None, Any, None]:
     """A generator responsible for creating and deleting the application's pid file."""
     # Making the file
-    directory = platformdirs.user_runtime_path(params.APPLICATION_NAME, appauthor=False)
+    directory = params.RUNTIME_PATH
     if not directory.is_dir():
         directory.mkdir(parents=True)
 
@@ -59,33 +76,22 @@ def main() -> None:
                                      description='A client application for the instruments of the UCSC TGF group')
     parser.add_argument('--setup', help='run the set up process for the application', action='store_true')
     parser.add_argument('--test-config', help='test that the config file contains valid options', action='store_true')
+
     args = parser.parse_args()
+
     # Handling any arguments
+    has_args = False
     if args.setup:
         read_config()
-        print(f'Made/updated config file at {platformdirs.user_config_path(params.APPLICATION_NAME, appauthor=False)}.')
-        return
+        print(f'Made/updated config file at {params.USER_CONFIG_PATH}.')
+        has_args = True
+
     if args.test_config:
-        try:
-            ClientModel(**dict(read_config().items(params.APPLICATION_NAME)))
-            print('All config file options successfully validated.')
-            return
-        except configparser.NoSectionError:
-            print(f'Encountered error when parsing config file: no section for the application exists.')
-            return
-        except pydantic.ValidationError as ex:
-            print(f'Encountered error(s) when validating config file:')
-            for error in ex.errors():
-                loc = '.'.join([s for s in error['loc'] if isinstance(s, str)])
-                if error['type'] == 'missing':
-                    print(f"Missing required field: {loc}.")
-                else:
-                    print(f"Invalid input '{error['input']}' at {loc}. {error['msg']}")
+        test_config()
+        has_args = True
 
-            return
-
-    # Running the application
-    if running_pid() == -1:
+    if not has_args and running_pid() == -1:
+        # Running the application
         try:
             client = Client()
         except pydantic.ValidationError:

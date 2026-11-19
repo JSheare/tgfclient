@@ -1,7 +1,6 @@
 """A module containing functions that read the tgfclient application's config file."""
 import configparser
 import pathlib
-import platformdirs
 
 import tgfclient.config.parameters as params
 
@@ -30,12 +29,11 @@ def read_config(update_user_config: bool = True) -> configparser.ConfigParser:
     """
 
     # Reading the user config file, or making one if it doesn't exist
-    directory = platformdirs.user_config_path(params.APPLICATION_NAME, appauthor=False)
+    directory = pathlib.Path(params.USER_CONFIG_PATH)
     user_file = f'{directory}/{params.CONFIG_FILE}'
     if not pathlib.Path(user_file).is_file():
-        directory_path = pathlib.Path(directory)
-        if not directory_path.is_dir():
-            directory_path.mkdir(parents=True)
+        if not directory.is_dir():
+            directory.mkdir(parents=True)
 
         template_config = get_config_template()
         with open(user_file, 'w') as user_file:
