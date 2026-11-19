@@ -30,33 +30,39 @@ from tgfclient.validation.config_validation import ClientModel
 
 class Measurements:
     """A helper class that keeps track of data transfer rate measurements for the application."""
-    def __init__(self, measured_rates: List[float], timestamps: List[datetime.datetime]) -> None:
-        self.measured_rates = measured_rates
-        self.timestamps = timestamps
+    def __init__(self) -> None:
+        self.measured_rates, self.timestamps = self._read()
 
     def __len__(self):
         return len(self.measured_rates)
 
-    @classmethod
-    def from_json_dict(cls, json_dict: Dict[str, List[float | str]]) -> Measurements:
-        """Converts a JSON-serializable dictionary back into a Measurements instance."""
-        measured_rates = json_dict['measured_rates'].copy()
-        timestamps = []
-        for i in range(len(json_dict['timestamps'])):
-            timestamps.append(datetime.datetime.fromisoformat(json_dict['timestamps'][i]))
+    @staticmethod
+    def _read() -> Tuple[List[float], List[datetime.datetime]]:
+        """Reads the measurements file and returns it as two lists."""
+        measurements_file = f'{params.DATA_PATH}/{params.MEASUREMENTS_FILE}'
+        if pathlib.Path(measurements_file).is_file():
+            raw_measurements = read_json_file(measurements_file)
+            timestamps = []
+            for i in range(len(raw_measurements['timestamps'])):
+                timestamps.append(datetime.datetime.fromisoformat(raw_measurements['timestamps'][i]))
 
-        return cls(measured_rates, timestamps)
+            return raw_measurements['measured_rates'], timestamps
 
-    def to_json_dict(self) -> Dict[str, List[float | str]]:
-        """Returns the Measurements instance as a JSON-serializable dictionary."""
+        return [], []
+
+    def write(self) -> None:
+        """Writes the measurements to a file."""
         raw_measurements = dict()
-        raw_measurements['measured_rates'] = self.measured_rates.copy()
-        raw_timestamps = []
+        raw_measurements['measured_rates'] = self.measured_rates
+        raw_measurements['timestamps'] = []
         for i in range(len(self.timestamps)):
-            raw_timestamps.append(self.timestamps[i].isoformat())
+            raw_measurements['timestamps'].append(self.timestamps[i].isoformat())
 
-        raw_measurements['timestamps'] = raw_timestamps
-        return raw_measurements
+        path = pathlib.Path(params.DATA_PATH)
+        if not path.is_dir():
+            path.mkdir(parents=True)
+
+        write_json_file(raw_measurements, f'{path}/{params.MEASUREMENTS_FILE}')
 
     def add_measurement(self, measured_rate: float) -> None:
         self.measured_rates.append(measured_rate)
@@ -65,6 +71,41 @@ class Measurements:
     def remove_measurement(self) -> None:
         self.measured_rates.pop(0)
         self.timestamps.pop(0)
+
+
+class TransferRecord:
+    """A helper class that keeps track of days transferred for the application."""
+    def __init__(self) -> None:
+        self._days_transferred = set()
+
+    def __contains__(self, day: str) -> bool:
+        """Returns True if the given day is present in the record, and False otherwise."""
+        return day in self._days_transferred
+
+    @staticmethod
+    def _read() -> Set[str]:
+        """Reads the transfer record file and returns it as a set."""
+        days_file = f'{params.DATA_PATH}/{params.DAYS_FILE}'
+        if pathlib.Path(days_file).is_file():
+            return set(read_json_file(days_file))
+
+        return set()
+
+    def write(self) -> None:
+        """Writes the transfer record to a file."""
+        path = pathlib.Path(params.DATA_PATH)
+        if not path.is_dir():
+            path.mkdir(parents=True)
+
+        write_json_file(list(self._days_transferred), f'{path}/{params.DAYS_FILE}')
+
+    def add(self, day: str) -> None:
+        """Adds the given day to the transfer record."""
+        self._days_transferred.add(day)
+
+    def update(self, all_days: Set[str]) -> None:
+        """Updates the record to only include days present in both the current record and the given all days set."""
+        self._days_transferred = all_days.intersection(self._days_transferred)
 
 
 @dataclass
@@ -281,7 +322,7 @@ class Client:
         The application's logger.
     _measurements : Measurements
         The application's measured data transfer rates.
-    _days_transferred : set of str
+    _transfer_record : TransferRecord
         The application's record of days that have already been transferred.
 
     """
@@ -290,8 +331,8 @@ class Client:
         self._config = ClientModel(**dict(read_config().items(params.APPLICATION_NAME)))
         self._logger = logging.getLogger(params.APPLICATION_NAME)
         self._logger.setLevel(self._config.log_level)
-        self._measurements = self._read_measurements()
-        self._days_transferred = self._read_days_transferred()
+        self._measurements = Measurements()
+        self._transfer_record = TransferRecord()
 
         while len(self._measurements) > params.MAX_MEASUREMENTS:
             self._measurements.remove_measurement()
@@ -300,44 +341,6 @@ class Client:
         """A helper function that configures the loggers of the modules used by the class."""
         logging.getLogger('websockets.client').setLevel(self._config.log_level)
         logging.getLogger('paramiko').setLevel(self._config.log_level)
-
-    @staticmethod
-    def _read_measurements() -> Measurements:
-        """A helper function that reads the measured data transfer rates from a file."""
-        measurements_file = f'{params.DATA_PATH}/{params.MEASUREMENTS_FILE}'
-        if pathlib.Path(measurements_file).is_file():
-            raw_measurements = read_json_file(measurements_file)
-
-            return Measurements.from_json_dict(raw_measurements)
-
-        return Measurements([], [])
-
-    def _write_measurements(self) -> None:
-        """A helper function that writes the measured data transfer rates to a file."""
-        path = pathlib.Path(params.DATA_PATH)
-        if not path.is_dir():
-            path.mkdir(parents=True)
-
-        measurements_file = f'{path}/{params.MEASUREMENTS_FILE}'
-        write_json_file(self._measurements.to_json_dict(), measurements_file)
-
-    @staticmethod
-    def _read_days_transferred() -> Set[str]:
-        """A helper function that reads the record of already transferred days from a file."""
-        days_file = f'{params.DATA_PATH}/{params.DAYS_FILE}'
-        if pathlib.Path(days_file).is_file():
-            return set(read_json_file(days_file))
-
-        return set()
-
-    def _write_days_transferred(self) -> None:
-        """A helper function that writes the record of already transferred days to a file."""
-        path = pathlib.Path(params.DATA_PATH)
-        if not path.is_dir():
-            path.mkdir(parents=True)
-
-        days_file = f'{path}/{params.DAYS_FILE}'
-        write_json_file(list(self._days_transferred), days_file)
 
     def _get_new_days(self) -> Dict[str, Day]:
         """A helper function that returns a dictionary containing information about days that need to be transferred."""
@@ -353,7 +356,7 @@ class Client:
             all_days.add(day)
 
             # Adding days that are new and not empty to the set
-            if day not in self._days_transferred:
+            if day not in self._transfer_record:
                 total_size = 0
                 for item in pathlib.Path(day_dir).glob('*'):
                     if item.is_file():
@@ -363,8 +366,8 @@ class Client:
                     new_days[day] = Day(day, day_dir, total_size)
 
         # Updating days transferred to include only existing days
-        self._days_transferred = all_days.intersection(self._days_transferred)
-        self._write_days_transferred()
+        self._transfer_record.update(all_days)
+        self._transfer_record.write()
 
         # Removing the current day from the list, since it isn't over
         today = datetime.datetime.now().strftime('%y%m%d')
@@ -593,8 +596,8 @@ class Client:
                 if self._is_already_transferred(sftp, remote_days[day]):
                     self._logger.debug(f'{day} was already transferred. Removing from transfer list.')
                     new_days.pop(day)
-                    self._days_transferred.add(day)
-                    self._write_days_transferred()
+                    self._transfer_record.add(day)
+                    self._transfer_record.write()
 
     def _transfer_day(self, sftp: paramiko.SFTPClient, end_time: datetime.datetime, day: Day,
                       remote_path: str) -> float:
@@ -638,8 +641,8 @@ class Client:
             sftp.remove(f'{remote_dir}/{params.TRANSFER_FILE}')
 
             # Recording the day as transferred
-            self._days_transferred.add(day.day)
-            self._write_days_transferred()
+            self._transfer_record.add(day.day)
+            self._transfer_record.write()
 
         self._logger.info(f'Successfully transferred {files_transferred}/{len(files)} files.')
         return total_bytes
@@ -687,7 +690,7 @@ class Client:
             while len(self._measurements) > params.MAX_MEASUREMENTS:
                 self._measurements.remove_measurement()
 
-            self._write_measurements()
+            self._measurements.write()
 
 
     def main(self) -> None:
