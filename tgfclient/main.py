@@ -2,6 +2,7 @@
 import argparse
 import configparser
 import os
+import pathlib
 import psutil
 import pydantic
 import sys
@@ -54,7 +55,7 @@ def running_pid() -> int:
 def pid_manager() -> Generator[None, Any, None]:
     """A generator responsible for creating and deleting the application's pid file."""
     # Making the file
-    directory = params.RUNTIME_PATH
+    directory = pathlib.Path(params.RUNTIME_PATH)
     if not directory.is_dir():
         directory.mkdir(parents=True)
 
